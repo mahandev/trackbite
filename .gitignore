@@ -1,0 +1,26 @@
+# Secrets
+.env
+
+# Go build artifacts
+trackbite
+*.test
+*.out
+
+# Swift build artifacts
+trackweighd/.build/
+trackweighd/.swiftpm/
+trackweighd/Package.resolved
+trackweighd/bin/
+
+# Local data
+*.db
+*.sqlite
+*.sqlite3
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
