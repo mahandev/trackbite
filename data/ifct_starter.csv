@@ -1,0 +1,104 @@
+name,kcal,protein,carbs,fat,source
+roti,297,11.2,51.0,4.7,IFCT-2017 (wheat flour, atta)
+chapati,297,11.2,51.0,4.7,IFCT-2017
+paratha plain,297,8.0,45.0,10.0,IFCT-2017
+aloo paratha,240,7.0,30.0,10.0,Indian Food 101
+methi paratha,250,7.5,28.0,12.0,Indian Food 101
+naan,310,9.0,55.0,5.6,IFCT-2017
+butter naan,320,9.5,55.0,7.5,Indian Food 101
+roomali roti,280,9.0,52.0,3.0,Indian Food 101
+kulcha,270,8.0,52.0,4.5,Indian Food 101
+jowar roti,329,10.4,67.7,1.7,IFCT-2017 (sorghum)
+bajra roti,360,11.6,67.5,5.0,IFCT-2017 (pearl millet)
+ragi roti,354,7.0,72.6,1.5,IFCT-2017 (finger millet)
+makki roti,326,9.0,66.0,3.6,IFCT-2017 (maize)
+rice cooked,130,2.7,28.0,0.3,USDA generic
+basmati rice cooked,121,3.0,25.5,0.4,USDA generic
+brown rice cooked,123,2.7,25.6,1.0,USDA generic
+khichdi,121,5.0,20.0,2.5,Indian Food 101
+pulao,165,4.0,28.0,4.5,Indian Food 101
+veg biryani,153,3.8,28.0,3.6,Indian Food 101
+chicken biryani,175,8.5,22.0,6.5,Indian Food 101
+mutton biryani,232,11.0,25.0,9.0,Indian Food 101
+toor dal cooked,116,7.0,20.0,0.5,IFCT-2017
+moong dal cooked,105,7.0,19.0,0.4,IFCT-2017
+chana dal cooked,164,11.0,27.0,2.5,IFCT-2017
+masoor dal cooked,116,9.0,20.0,0.4,IFCT-2017
+urad dal cooked,118,9.0,19.0,0.4,IFCT-2017
+dal tadka,137,6.0,18.0,4.5,Indian Food 101
+dal makhani,280,9.0,18.0,18.0,Indian Food 101
+chana masala,180,7.0,24.0,6.5,Indian Food 101
+rajma,144,8.0,22.0,1.0,Indian Food 101
+chole,180,7.0,24.0,6.5,Indian Food 101
+sambar,70,2.5,9.0,2.5,Indian Food 101
+rasam,40,1.0,7.0,1.0,Indian Food 101
+paneer raw,296,18.3,1.2,25.0,IFCT-2017
+paneer butter masala,285,12.0,9.0,22.0,Indian Food 101
+palak paneer,175,8.0,8.0,12.5,Indian Food 101
+shahi paneer,310,12.0,10.0,25.0,Indian Food 101
+mutter paneer,175,9.0,10.0,11.5,Indian Food 101
+butter chicken,250,15.0,7.0,18.0,Indian Food 101
+chicken tikka masala,200,14.0,7.0,12.5,Indian Food 101
+chicken curry,180,15.0,5.0,11.0,Indian Food 101
+fish curry,170,15.0,4.0,10.0,Indian Food 101
+egg curry,160,9.0,5.0,12.0,Indian Food 101
+mutton curry,240,18.0,5.0,16.5,Indian Food 101
+idli,122,4.5,25.0,0.4,IFCT-2017
+dosa plain,168,4.0,29.0,3.7,IFCT-2017
+masala dosa,168,4.0,29.0,3.7,Indian Food 101
+medu vada,269,7.0,30.0,13.0,Indian Food 101
+uttapam,174,5.0,28.0,4.5,Indian Food 101
+poha,130,3.0,26.0,1.5,Indian Food 101
+upma,132,4.0,22.0,3.0,Indian Food 101
+sabudana khichdi,200,3.0,30.0,7.5,Indian Food 101
+aloo gobi,92,2.5,12.0,4.0,Indian Food 101
+bhindi masala,104,2.0,9.0,7.0,Indian Food 101
+baingan bharta,81,2.5,8.0,4.5,Indian Food 101
+mixed vegetable,90,3.0,10.0,4.5,Indian Food 101
+methi sabzi,75,3.5,9.0,3.0,Indian Food 101
+saag,90,3.0,8.0,5.0,Indian Food 101
+samosa,308,5.0,32.0,18.0,Indian Food 101
+pakora,315,5.5,30.0,19.0,Indian Food 101
+bhel puri,100,3.0,18.0,2.0,Indian Food 101
+sev puri,160,3.5,22.0,6.5,Indian Food 101
+pani puri,53,1.0,8.0,2.0,Indian Food 101 (per piece, ~10g)
+dahi puri,60,1.5,8.5,2.5,Indian Food 101 (per piece)
+gulab jamun,143,2.5,17.0,7.0,Indian Food 101 (per piece, ~25g)
+rasgulla,186,3.0,30.0,5.5,Indian Food 101
+jalebi,350,2.0,55.0,14.5,Indian Food 101
+kheer,130,4.0,18.0,4.5,Indian Food 101
+gajar halwa,220,4.0,28.0,11.0,Indian Food 101
+besan laddu,462,9.0,55.0,24.0,Indian Food 101
+boondi laddu,400,7.0,55.0,18.0,Indian Food 101
+barfi,376,7.0,55.0,15.0,Indian Food 101
+peda,350,8.0,52.0,12.0,Indian Food 101
+kaju katli,420,9.0,52.0,21.0,Indian Food 101
+curd whole milk,60,3.5,4.5,3.0,IFCT-2017
+curd low fat,55,4.5,5.0,1.5,IFCT-2017
+hung curd,93,5.0,3.5,7.0,IFCT-2017
+lassi sweet,89,2.5,11.0,3.5,Indian Food 101
+buttermilk,19,1.0,2.0,0.4,IFCT-2017
+ghee,900,0.0,0.0,100.0,IFCT-2017
+mustard oil,884,0.0,0.0,100.0,USDA
+coconut oil,862,0.0,0.0,100.0,USDA
+sunflower oil,884,0.0,0.0,100.0,USDA
+banana,89,1.1,23.0,0.3,USDA
+mango ripe,60,0.8,15.0,0.4,USDA
+papaya,43,0.5,11.0,0.3,USDA
+guava,68,2.6,14.0,1.0,USDA
+apple,52,0.3,14.0,0.2,USDA
+orange,47,0.9,12.0,0.1,USDA
+pomegranate,83,1.7,19.0,1.2,USDA
+coconut fresh,354,3.3,15.0,33.5,USDA
+potato boiled,87,1.9,20.0,0.1,USDA
+sweet potato boiled,76,1.4,17.7,0.1,USDA
+tomato,18,0.9,3.9,0.2,USDA
+onion,40,1.1,9.3,0.1,USDA
+cucumber,15,0.7,3.6,0.1,USDA
+chai with milk sugar,38,1.0,5.0,1.5,Indian Food 101
+filter coffee,25,1.5,3.0,1.0,Indian Food 101
+maggi cooked,110,3.0,15.0,4.5,Nestle India label
+parle-g,456,7.0,76.0,14.0,Parle nutrition label
+britannia good day,490,7.0,65.0,22.0,Britannia label
+amul butter,720,0.6,0.4,80.0,Amul label
+amul cheese,348,25.0,2.0,27.0,Amul label
