@@ -17,13 +17,13 @@ import PackageDescription
 
 let package = Package(
     name: "trackweighd",
-    platforms: [.macOS(.v12)],
+    platforms: [.macOS(.v13)],
     dependencies: [
         // Aladdin Free Paul's Swift wrapper around MultitouchSupport.
         // Pinned to a known-good tag; bump intentionally.
         .package(
             url: "https://github.com/Kyome22/OpenMultitouchSupport.git",
-            from: "1.2.0"
+            from: "3.0.0"
         )
     ],
     targets: [

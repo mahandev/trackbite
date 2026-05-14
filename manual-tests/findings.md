@@ -129,3 +129,102 @@ not a code decision — I shouldn't unlink the full Qt for them.
 - Smoke-test the Swift helper: `cd trackweighd && swift build -c release && ./.build/release/trackweighd`
   should print `READY 90` then a stream of `READING 0.00` lines that
   rise when you touch the trackpad.
+
+---
+
+## 2026-05-14 (cont.) — Resolving Findings 2 + 4 the proper way
+
+**Why we ran it.**
+We left off blocked on Finding 4 (qt/qtbase conflict) and the original
+plan was to downgrade OpenCV to 4.11 so it matched the version gocv
+v0.43.0 was developed against. That plan ran into a wall, and the
+actual fix turned out to be simpler.
+
+### Finding 5 — Downgrading OpenCV to 4.11 from source is blocked by an outdated Xcode CLT
+- Pulled the 4.11.0_1 formula from homebrew-core's git history at
+  commit `df1b11adf2d` and vendored it at `.brew/opencv-4.11.rb`.
+- Dropped it into a local tap (`mahandev/local`) so `brew install
+  --build-from-source` would accept it.
+- `brew install --build-from-source mahandev/local/opencv` refused to
+  start the compile: this machine has Xcode Command Line Tools
+  **14.3.1** (from 2023), but Homebrew on macOS 26.0 demands **26.3**.
+  Updating CLT means `sudo rm -rf /Library/Developer/CommandLineTools
+  && sudo xcode-select --install` — a 10–15 min interactive install
+  that's only worth doing if the 4.11 path is load-bearing.
+
+We decided it wasn't (see Finding 6).
+
+### Finding 6 — `brew uninstall opencv` auto-removed the orphaned qtbase, dissolving Finding 4
+The very act of running `brew uninstall --ignore-dependencies opencv`
+caused Homebrew to autoremove `qtbase/6.11.0` — because, with opencv
+gone, nothing else on this machine depended on qtbase. The Finding 4
+"qmake conflict between qt and qtbase" was therefore *self-healing*
+once we let Homebrew clean house.
+
+A subsequent `brew install opencv` then pulled qtbase back in fresh as
+a dependency, and the `qmake` / `qt-cmake` symlinks now point at
+**qtbase 6.11** instead of full qt 6.8.2. Full qt is still installed
+but its CLI tools are unlinked. For trackbite this is irrelevant — we
+don't touch qt at all. For anything else on this machine that needs
+full qt's qmake, `brew unlink qtbase && brew link qt` would swap them
+back.
+
+### Finding 7 — gocv v0.43.0 vs OpenCV 4.13's inline `dnn4_v...` namespace
+With opencv reinstalled, `go build ./manual-tests/01-camera` got past
+the dyld load problem but hit a brand-new linker error:
+
+```
+Undefined symbols for architecture arm64:
+  "cv::dnn::dnn4_v20241223::Net::Net()", referenced from: ...
+  "cv::dnn::dnn4_v20241223::readNet(...)", referenced from: ...
+```
+
+OpenCV's `dnn` module wraps its public API in an *inline namespace*
+that gets bumped any time the dnn ABI changes — currently
+`cv::dnn::dnn4_v20251223` in opencv 4.13.0_10's `libopencv_dnn.dylib`.
+gocv v0.43.0's C++ glue was generated against `dnn4_v20241223` (one
+year older). The two don't link.
+
+**Fix.** gocv has per-module build tags. Build with
+`-tags gocv_specific_modules,gocv_videoio` and the dnn glue is
+excluded entirely. The barcode pipeline only uses `VideoCapture` +
+`Mat.ToImage`, so dropping dnn costs us nothing.
+
+The `Makefile` now bakes this in for both `make app` and a new `make
+cam-test` target. README troubleshooting has rows for both the dyld
+case (Finding 2 / Finding 6 fix) and this linker case.
+
+### Finding 8 — Camera permission isn't granted automatically
+First post-fix run of `/tmp/cam-test`:
+
+```
+opening camera 0 ...
+OpenCV: not authorized to capture video (status 0), requesting...
+OpenCV: camera failed to properly initialize!
+2026/05/14 15:02:36 open camera: Error opening device: 0
+```
+
+gocv loaded fine, AVFoundation responded, but macOS denied the capture
+because the parent terminal hasn't been allow-listed yet under
+*System Settings → Privacy & Security → Camera*. Pure
+system-administration step; can't be fixed from inside the binary.
+README already documents this row.
+
+**State after this session.**
+- ✓ `manual-tests/01-camera` builds against opencv 4.13.0_10 using
+  selective gocv tags.
+- ✓ Binary loads cleanly (no `Library not loaded` errors).
+- ✓ gocv reaches AVFoundation.
+- ☐ Decode test pending: needs Terminal granted Camera permission,
+  then re-run `/tmp/cam-test` with a real barcode in frame.
+
+### Open questions / follow-ups
+- After granting camera permission, rerun `/tmp/cam-test` and confirm
+  a real EAN-13 decodes within the 30 s budget.
+- Stop trying to match OpenCV's bottled version to gocv's stated
+  expectation — gocv's per-module tags are flexible enough to absorb
+  the drift. Only revisit if gocv ships a new release that starts
+  depending on dnn from elsewhere in the package.
+- The `.brew/opencv-4.11.rb` vendored formula and the
+  `mahandev/local` tap are leftover from the abandoned downgrade
+  path. Both removed at end of this session.

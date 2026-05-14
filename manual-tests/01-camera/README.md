@@ -18,12 +18,18 @@ on this machine."
 ## How to run
 
 ```bash
-# Build
-go build -o /tmp/cam-test ./manual-tests/01-camera
+# Build (or `make cam-test` from the repo root)
+go build -tags gocv_specific_modules,gocv_videoio -o /tmp/cam-test ./manual-tests/01-camera
 
 # Run — hold any food barcode 10-20 cm from the camera
 /tmp/cam-test
 ```
+
+The `-tags gocv_specific_modules,gocv_videoio` part excludes gocv's `dnn`
+glue — we don't need it for barcode work, and as of OpenCV 4.13 the dnn
+inline namespace was bumped past what gocv v0.43.0 was built against, so
+including it triggers `Undefined symbols: cv::dnn::dnn4_v20241223...` at
+link time. See findings entry below.
 
 You can also point at a different camera with `./cam-test 1`.
 
@@ -35,7 +41,8 @@ You can also point at a different camera with `./cam-test 1`.
   for that terminal.
 - **`Library not loaded` errors.** Almost always means Homebrew has
   upgraded `protobuf` or `abseil` past what your installed `opencv` was
-  built against. Fix: `brew reinstall opencv`. See `../findings.md`.
+  built against. Fix: `brew uninstall --ignore-dependencies opencv && brew install opencv`.
+  See `../findings.md`.
 - **Decode fails on every frame.** Move closer (10–15 cm), brighter
   light, hold steady for a full second. EAN-13 is sensitive to motion
   blur.

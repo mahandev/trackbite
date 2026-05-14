@@ -127,7 +127,7 @@ func startStdinReader() {
 // Main — subscribe to touch frames, do math, print readings.
 // ──────────────────────────────────────────────────────────────────────────
 
-let manager = OMSManager.shared()
+let manager = OMSManager.shared
 manager.startListening()
 
 emit("READY 90")  // 90 Hz is the typical Force Touch sample rate
@@ -139,8 +139,8 @@ startStdinReader()
 // any object resting on the pad contribute to the total.
 Task {
     for await touches in manager.touchDataStream {
-        let totalForce = touches.reduce(0.0) { sum, touch in
-            sum + Double(touch.total.force)
+        let totalForce = touches.reduce(into: 0.0) { sum, touch in
+            sum += Double(touch.total)
         }
 
         // Handle a pending CALIBRATE command: assume the current reading

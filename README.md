@@ -192,6 +192,11 @@ make helper
 
 # 5. Build the Go app
 make app
+# (gocv v0.43.0 hard-codes OpenCV 4.11's `dnn4_v20241223` namespace, but
+# Homebrew now ships OpenCV 4.13 whose inline namespace is bumped to
+# `dnn4_v20251223`. The Makefile builds with `-tags
+# gocv_specific_modules,gocv_videoio` to exclude the dnn module — we
+# don't use it. See manual-tests/findings.md.)
 
 # 6. Run
 ./trackbite
@@ -222,7 +227,8 @@ Touch hardware varies subtly between models.
 
 | Symptom | Fix |
 |---|---|
-| `dyld: Library not loaded: libprotobuf...` or `libabsl...` | Homebrew has upgraded a transitive dep past what your installed OpenCV was built against. `brew reinstall opencv`. See `manual-tests/findings.md`. |
+| `dyld: Library not loaded: libprotobuf...` or `libabsl...` | Homebrew has upgraded a transitive dep past what your installed OpenCV was built against. `brew uninstall --ignore-dependencies opencv && brew install opencv`. If the reinstall fails on a qt/qtbase symlink conflict, accept the takeover (`brew link --overwrite qtbase`). See `manual-tests/findings.md`. |
+| Linker error `Undefined symbols ... cv::dnn::dnn4_v...` when building gocv | gocv v0.43.0 references an inline dnn namespace that Homebrew's current OpenCV has bumped. Build with `-tags gocv_specific_modules,gocv_videoio` to exclude dnn. The Makefile already does this. |
 | `camera 0 did not open` | macOS camera permission. Open *System Settings → Privacy & Security → Camera* and enable your terminal. |
 | Scale always reads 0 g | Trackpad only reports pressure when something *capacitive* (a finger) touches it. Keep one finger lightly on the pad. |
 | Weight readings drift / are off | Run `t` to tare, then `c <known grams>` with a calibration weight. |
