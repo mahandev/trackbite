@@ -228,3 +228,101 @@ README already documents this row.
 - The `.brew/opencv-4.11.rb` vendored formula and the
   `mahandev/local` tap are leftover from the abandoned downgrade
   path. Both removed at end of this session.
+
+---
+
+## 2026-05-14 (cont.) — Trackpad scale smoke test (`02-scale/`)
+
+**Why we ran it.**
+In the integrated app, the weight readout was stuck at `0.0 g` even
+while a barcode decoded successfully. We needed an isolated test
+that bypassed the smoothing filter, the UI throttling, the camera,
+and the nutrition chain — just the Swift helper streaming raw
+`READING <grams>` lines so we could see exactly what the trackpad was
+reporting.
+
+### Finding 9 — The original "food next to finger" mental model is wrong
+The header comment in `trackweighd/Sources/trackweighd/main.swift`
+claimed:
+
+> the strain gauges measure the combined weight … put the food next to
+> your finger
+
+This is **not** what happens on Apple Silicon trackpads under current
+macOS. `OMSTouchData.total` is the OS's *per-contact attributed force*,
+not the whole plate's deflection. With one finger resting on the pad
+and a separate (heavier than noise) object placed elsewhere on the
+trackpad surface, `total` on the finger's touch does not move. The
+object's weight is simply not present in any reported field.
+
+**Reproduced experimentally** with `02-scale`:
+- Finger only on pad → `READING` ≈ 30–80 (varies with finger pressure).
+- Add 100+ g object beside finger → `READING` unchanged.
+- Move the same object *onto the resting finger* → `READING` rises by
+  roughly the object's weight.
+
+So the working technique is: rest a finger flat, place food **on** the
+finger so its weight transfers through the finger into the trackpad
+contact point. The helper's header comment and the main app's banner
+were updated accordingly.
+
+### Finding 10 — macOS rest-rejection on stationary contacts
+Within a few seconds of a still finger, `READING` collapses to 0 even
+though the finger is visibly still on the pad. Two failure modes in the
+touch stream:
+
+- The touch's `state` flips to `lingering` and `total` drops to 0, or
+- The touch disappears from the array entirely (`touches=0`).
+
+Either way, `totalForce = 0` and the helper's clamp emits
+`READING 0.00`. The OS does this to suppress accidental input from
+palms / resting hands.
+
+**Workaround.** Slight finger movement every few seconds keeps the
+contact "active". There's no flag in `OpenMultitouchSupport` to
+disable the filter; doing it properly would require talking to
+`MTRegisterContactFrameCallback` directly (what TrackWeight ends up
+doing) — left as a future enhancement.
+
+### Finding 11 — TARE needs a two-phase state machine
+The original `TARE` command immediately averaged the next 30 frames
+(~333 ms at 90 Hz). Problem: typing `t` + enter requires taking the
+finger off the trackpad to hit the keys. The averaging window therefore
+captured the no-contact state, set `tareOffset` ≈ 0, and subsequent
+finger-on readings showed the full finger weight as if nothing had been
+tared.
+
+**Fix.** `TARE` now *arms* the tare (`tareWaitingForContact = true`)
+and warns `tare armed — place finger on trackpad`. The main loop watches
+for `totalForce > 0.05` and only then starts the 30-frame averaging
+window. The user can press `t`, take their time placing the finger, and
+the right baseline gets captured.
+
+### Finding 12 — Verbose mode pays for itself
+Added a `VERBOSE` stdin command to the helper that throttles to ~1 Hz
+and prints `state`, `total`, `pressure`, and position per active touch
+on stderr. This is what let us tell apart "touch dropped" from "touch
+present but total zeroed" — three lines of output saved us a wrong
+hypothesis about which OS filter was kicking in. Kept on by default off
+behind the toggle; readers of the 02-scale smoke test can flip it with
+`v`.
+
+### State after this session
+- ✓ `manual-tests/02-scale` builds and streams raw helper output with
+  throttled READING display + togglable per-touch verbose dump.
+- ✓ Helper TARE workflow waits for contact before averaging.
+- ✓ Main app status line recomputes kcal live from the current grams
+  reading so calories track the scale as food is added or removed.
+- ✓ README + helper comments updated with the actual working technique
+  ("food on finger", not "next to finger") and the rest-rejection note.
+- ☐ Bypass macOS rest-rejection by switching from
+  `OpenMultitouchSupport` to direct `MTRegisterContactFrameCallback` —
+  would remove the finger-wiggle requirement. Deferred.
+
+### Open questions / follow-ups
+- Calibrate `gramsPerForce` against a real kitchen scale on each new
+  machine — the default (100.0) is a starting point only.
+- Consider whether the rest-rejection workaround is worth the effort
+  of dropping out of `OpenMultitouchSupport`. For a personal-use
+  calorie tracker, "wiggle finger every few seconds" is probably
+  acceptable; for anything resembling a product, it isn't.

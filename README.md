@@ -62,12 +62,28 @@ macOS). The Swift helper at `trackweighd/` taps it via the
 SwiftPM package, sums force across all active contacts each frame, and
 prints a line of grams to stdout 30‑90× a second.
 
-**One hardware quirk you must know:** the trackpad only reports pressure
-while something *capacitive* (a finger) is touching it. A piece of food
-on its own registers zero. So you keep one finger lightly on the pad
-with the food next to your finger, tare the finger weight away, and the
-remainder is the food. Realistic accuracy is ±0.5 g, working range
-5–500 g.
+**Two hardware quirks you must know:**
+
+1. **Capacitive contact required.** The trackpad only reports pressure
+   while something capacitive (a finger) is touching it. A piece of food
+   on its own registers zero.
+2. **Force is attributed per‑contact, not per‑plate.** `touch.total` is
+   the force the OS assigns to that specific touch — *not* the whole
+   plate's deflection. So food placed *beside* your finger does not
+   register on the finger's reading. To weigh anything, the food's
+   weight has to physically transfer **through** your finger into the
+   trackpad: rest a finger flat, then place the food on the finger.
+
+There's also a macOS rest filter: a stationary contact is reclassified
+as "resting" after a few seconds and either has its force zeroed or is
+dropped from the touch stream entirely. A small finger wiggle every few
+seconds keeps the contact alive. There's no way to disable this through
+the public OpenMultitouchSupport API.
+
+Workflow: press `t` to arm the tare, rest a finger on the pad (the
+helper waits for contact, then averages 30 frames), place the food on
+your finger, and the remainder is the food. Realistic accuracy with
+this technique is ±1–2 g over a working range of roughly 10–300 g.
 
 ### The barcode pipeline
 
@@ -124,7 +140,8 @@ trackbite/
 │   ├── Package.swift
 │   └── Sources/trackweighd/main.swift
 └── manual-tests/              ← isolation smoke tests + findings.md
-    └── 01-camera/             ← gocv + gozxing standalone test
+    ├── 01-camera/             ← gocv + gozxing standalone test
+    └── 02-scale/              ← trackweighd standalone test (verbose mode)
 ```
 
 ## Getting the API keys
@@ -212,11 +229,14 @@ The default scale factor in `trackweighd/Sources/trackweighd/main.swift`
 For accurate readings:
 
 1. Run `./trackbite`
-2. Put one finger lightly on the trackpad. Don't put any food on yet.
-3. Type `t` and press enter. This tares (zeroes) the scale.
-4. Place a known weight on the pad next to your finger — a US nickel
-   (5.0 g), a Indian ₹10 coin (~7.7 g), or anything you've weighed on a
-   kitchen scale.
+2. Type `t` and press enter — this *arms* the tare. The helper prints
+   `warn: tare armed — place finger on trackpad` and waits.
+3. Rest one finger flat on the trackpad. The helper detects the contact
+   and averages 30 frames as the new zero, then prints
+   `warn: tare set: ...`.
+4. Place a known weight **on your finger** so its weight presses through
+   into the trackpad — a US nickel (5.0 g), an Indian ₹10 coin (~7.7 g),
+   or anything you've weighed on a kitchen scale.
 5. Type `c <grams>` (e.g. `c 7.7`) and press enter. The helper
    recomputes its force‑to‑grams scale factor in place.
 
@@ -230,8 +250,12 @@ Touch hardware varies subtly between models.
 | `dyld: Library not loaded: libprotobuf...` or `libabsl...` | Homebrew has upgraded a transitive dep past what your installed OpenCV was built against. `brew uninstall --ignore-dependencies opencv && brew install opencv`. If the reinstall fails on a qt/qtbase symlink conflict, accept the takeover (`brew link --overwrite qtbase`). See `manual-tests/findings.md`. |
 | Linker error `Undefined symbols ... cv::dnn::dnn4_v...` when building gocv | gocv v0.43.0 references an inline dnn namespace that Homebrew's current OpenCV has bumped. Build with `-tags gocv_specific_modules,gocv_videoio` to exclude dnn. The Makefile already does this. |
 | `camera 0 did not open` | macOS camera permission. Open *System Settings → Privacy & Security → Camera* and enable your terminal. |
-| Scale always reads 0 g | Trackpad only reports pressure when something *capacitive* (a finger) touches it. Keep one finger lightly on the pad. |
+| Scale always reads 0 g | Trackpad only reports pressure when something capacitive (a finger) touches it. Keep one finger lightly on the pad. |
+| Weight only changes when finger moves — food beside the finger reads 0 | `touch.total` is per‑contact attributed force, not whole‑plate deflection. Food has to press *through* your finger: rest finger flat, place food on the finger. |
+| Reading falls back to 0 after a few seconds even with finger on the pad | macOS rest filter — wiggle the finger slightly every few seconds, or use `./trackbite` while actively moving food on/off the finger. |
+| `tare set: 0.0...` and weight still shows finger weight | You took your finger off the pad to press enter, and the old tare averaged the no‑contact window. Re‑run `t` — the helper now waits for contact before averaging, so press `t`, then place the finger. |
 | Weight readings drift / are off | Run `t` to tare, then `c <known grams>` with a calibration weight. |
+| Want to verify the helper independently of the main app | Build and run the isolated smoke test: `go build -o /tmp/scale-test ./manual-tests/02-scale && /tmp/scale-test`. Type `v` to toggle per-touch verbose dumps. |
 | `trackweighd binary not found` | Run `make helper`. Requires Xcode Command Line Tools (`xcode-select --install`). |
 | Barcode never decodes | Hold steady 10‑15 cm from camera, better lighting, less glare on the package. |
 

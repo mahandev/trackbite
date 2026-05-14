@@ -137,6 +137,7 @@ func runLoop(
 	go readStdin(cmds)
 
 	var lastBarcode string
+	var lastFood *NutritionInfo // most recent lookup; drives live kcal in status
 	var hint string
 	const idleHint = "type a command and press enter"
 
@@ -154,7 +155,7 @@ func runLoop(
 			if h == "" {
 				h = idleHint
 			}
-			drawStatus(grams, lastBarcode, h)
+			drawStatus(grams, lastBarcode, lastFood, h)
 
 		case code := <-barcodes:
 			lastBarcode = code
@@ -163,12 +164,14 @@ func runLoop(
 				grams = scale.Current()
 			}
 			hint = "looking up barcode..."
-			drawStatus(grams, lastBarcode, hint)
-			lookupBarcode(ctx, chain, code, grams)
+			drawStatus(grams, lastBarcode, lastFood, hint)
+			if info := lookupBarcode(ctx, chain, code, grams); info != nil {
+				lastFood = info
+			}
 			hint = "press enter to scan another"
 
 		case line := <-cmds:
-			hint = handleCommand(ctx, line, scale, cam, chain, &lastBarcode, cancel)
+			hint = handleCommand(ctx, line, scale, cam, chain, &lastBarcode, &lastFood, cancel)
 		}
 	}
 }
@@ -180,6 +183,7 @@ func handleCommand(
 	cam *Camera,
 	chain *Chain,
 	lastBarcode *string,
+	lastFood **NutritionInfo,
 	cancel context.CancelFunc,
 ) string {
 	line = strings.TrimSpace(line)
@@ -189,6 +193,7 @@ func handleCommand(
 			cam.Reset()
 		}
 		*lastBarcode = ""
+		*lastFood = nil
 		return ""
 
 	case line == "q" || line == "quit" || line == "exit":
@@ -231,7 +236,9 @@ func handleCommand(
 		if scale != nil {
 			grams = scale.Current()
 		}
-		lookupName(ctx, chain, query, grams)
+		if info := lookupName(ctx, chain, query, grams); info != nil {
+			*lastFood = info
+		}
 		return "press enter to scan / look up again"
 
 	default:
@@ -240,24 +247,26 @@ func handleCommand(
 	}
 }
 
-func lookupBarcode(ctx context.Context, chain *Chain, code string, grams float64) {
+func lookupBarcode(ctx context.Context, chain *Chain, code string, grams float64) *NutritionInfo {
 	info, err := chain.Barcode(ctx, code)
 	if err != nil {
 		fmt.Print("\n")
 		printError(fmt.Sprintf("barcode %s not found in any source — try `n <food name>`", code))
-		return
+		return nil
 	}
 	printResult(info, grams, KcalForGrams(info, grams))
+	return info
 }
 
-func lookupName(ctx context.Context, chain *Chain, query string, grams float64) {
+func lookupName(ctx context.Context, chain *Chain, query string, grams float64) *NutritionInfo {
 	info, err := chain.Name(ctx, query)
 	if err != nil {
 		fmt.Print("\n")
 		printError("no match for \"" + query + "\"")
-		return
+		return nil
 	}
 	printResult(info, grams, KcalForGrams(info, grams))
+	return info
 }
 
 // readStdin pushes each line typed by the user onto the cmds channel.

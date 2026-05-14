@@ -11,12 +11,22 @@
 // `total.force` field — a unitless float that scales roughly linearly with
 // applied force within the trackpad's usable range.
 //
-// One critical hardware quirk: the trackpad only reports pressure while a
-// capacitive contact (a finger) is touching it. A dry, non-conductive
-// object on its own registers zero. To weigh food, you keep one finger
-// lightly on the pad and put the food next to your finger — the strain
-// gauges measure the combined weight, and you subtract a tared offset
-// captured while only your finger was touching.
+// Two hardware quirks worth knowing:
+//
+//   1. The trackpad only reports pressure while a capacitive contact (a
+//      finger) is touching it. A dry, non-conductive object on its own
+//      registers zero. To weigh food, rest a finger flat on the pad and
+//      place the food *on the finger* so its weight presses through the
+//      finger into the trackpad — `touch.total` is per-contact attributed
+//      force, not whole-plate deflection, so food merely *next to* the
+//      finger does not contribute. Tare with finger-only first, then add
+//      the food.
+//
+//   2. macOS reclassifies a stationary contact as "resting" after a few
+//      seconds and either zeros its force or drops it from the touch
+//      stream entirely. A small finger wiggle every few seconds keeps the
+//      contact alive. There's no way to disable this filter via the
+//      public OpenMultitouchSupport API.
 //
 // ──────────────────────────────────────────────────────────────────────────
 // Protocol — what this binary prints
@@ -36,6 +46,12 @@
 //                             with no food on it)
 //     CALIBRATE <grams>     — assume the current load is exactly this many
 //                             grams and recompute the scale factor
+//     VERBOSE               — toggle per-frame diagnostic dump on stderr:
+//                             one line per active touch with state, total,
+//                             pressure, position. Useful to confirm whether
+//                             a placed object actually increases `total` on
+//                             the active contact, or whether macOS drops the
+//                             contact / zeros its force.
 //     QUIT                  — exit cleanly
 //
 // Errors and informational notes go to stderr prefixed with "warn: " or
@@ -67,9 +83,25 @@ var tareOffset: Double = 0.0
 var tareFramesRemaining: Int = 0
 var tareAccumulator: Double = 0.0
 
+/// When true, a tare has been armed but is waiting for the user to put
+/// their finger back on the trackpad before averaging starts. This lets
+/// the user type `t` + enter (which requires taking the finger off the
+/// pad) without the averaging window catching the no-contact state.
+/// Once `totalForce` exceeds `tareContactThreshold`, we flip to the
+/// averaging phase by setting `tareFramesRemaining = 30`.
+var tareWaitingForContact: Bool = false
+let tareContactThreshold: Double = 0.05
+
 /// When set, the next frame's reading is assumed to equal this many grams
 /// and we recompute `gramsPerForce` from it. Used by `CALIBRATE`.
 var pendingCalibrationGrams: Double? = nil
+
+/// When true, every ~Nth frame also emits a per-touch diagnostic line on
+/// stderr so the operator can see exactly what the OS is reporting.
+/// Throttled to keep stderr readable at the helper's ~90 Hz sample rate.
+var verbose: Bool = false
+let verboseEveryNFrames: Int = 90 // ~1 Hz at 90 Hz sample rate
+var verboseFrameCounter: Int = 0
 
 // ──────────────────────────────────────────────────────────────────────────
 // stdout helpers — every line is line-buffered so Go sees readings live
@@ -107,13 +139,18 @@ func startStdinReader() {
             switch cmd {
             case "TARE":
                 tareAccumulator = 0
-                tareFramesRemaining = 30  // ~250 ms of averaging
+                tareFramesRemaining = 0
+                tareWaitingForContact = true
+                warn("tare armed — place finger on trackpad")
             case "CALIBRATE":
                 if parts.count == 2, let grams = Double(parts[1]) {
                     pendingCalibrationGrams = grams
                 } else {
                     warn("CALIBRATE requires a numeric gram value")
                 }
+            case "VERBOSE":
+                verbose.toggle()
+                warn("verbose = \(verbose)")
             case "QUIT":
                 exit(0)
             default:
@@ -143,6 +180,28 @@ Task {
             sum += Double(touch.total)
         }
 
+        // Optional per-frame diagnostic dump on stderr. Off by default;
+        // toggled by the VERBOSE stdin command. We emit one summary line
+        // ("touches=N totalForce=X") followed by one line per touch with
+        // its state, total, pressure, and position — enough detail to
+        // tell apart "OS dropped the contact" from "contact present but
+        // total is zero" from "an extra unattributed force component
+        // exists somewhere".
+        if verbose {
+            verboseFrameCounter += 1
+            if verboseFrameCounter >= verboseEveryNFrames {
+                verboseFrameCounter = 0
+                FileHandle.standardError.write(Data(
+                    "v: touches=\(touches.count) totalForce=\(String(format: "%.4f", totalForce))\n".utf8
+                ))
+                for t in touches {
+                    FileHandle.standardError.write(Data(
+                        "v:   id=\(t.id) state=\(t.state.rawValue) total=\(String(format: "%.4f", t.total)) pressure=\(String(format: "%.4f", t.pressure)) pos=(\(String(format: "%.3f", t.position.x)),\(String(format: "%.3f", t.position.y)))\n".utf8
+                    ))
+                }
+            }
+        }
+
         // Handle a pending CALIBRATE command: assume the current reading
         // equals the user-provided gram value, solve for `gramsPerForce`.
         if let knownGrams = pendingCalibrationGrams {
@@ -156,8 +215,16 @@ Task {
             pendingCalibrationGrams = nil
         }
 
-        // Handle a pending TARE command: average the next N frames'
-        // force readings to set a new zero point.
+        // Handle a pending TARE command in two phases:
+        //   1. waiting-for-contact: the user just typed `t` and pulled
+        //      their finger off to hit enter. Hold until force returns.
+        //   2. averaging: once a contact is back, average the next 30
+        //      frames' force readings as the new zero point.
+        if tareWaitingForContact && totalForce > tareContactThreshold {
+            tareWaitingForContact = false
+            tareFramesRemaining = 30
+            tareAccumulator = 0
+        }
         if tareFramesRemaining > 0 {
             tareAccumulator += totalForce
             tareFramesRemaining -= 1
